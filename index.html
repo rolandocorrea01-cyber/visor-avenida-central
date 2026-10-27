@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Visor 3D Av. Central</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.120.0/Build/Cesium/Widgets/widgets.css">
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.120.0/Build/Cesium/Cesium.js"></script>
+<style>
+  :root { --bg:#141a22e6; --fg:#e8edf3; --mut:#9aa7b5; --acc:#3fa7ff; --line:#2b3644; }
+  html,body{margin:0;height:100%;background:#000;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:var(--fg)}
+  #map{position:absolute;inset:0}
+  .panel{position:absolute;top:12px;left:12px;width:300px;max-height:calc(100% - 24px);overflow:auto;
+    background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-sizing:border-box;z-index:5;backdrop-filter:blur(6px)}
+  .panel.hidden{display:none}
+  h1{font-size:15px;margin:0 0 2px} .sub{font-size:11px;color:var(--mut);margin-bottom:10px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:14px 0 6px;border-top:1px solid var(--line);padding-top:10px}
+  .layer{padding:6px 0;border-bottom:1px dashed var(--line)}
+  .row{display:flex;align-items:center;gap:8px;font-size:13px}
+  .row label{flex:1;cursor:pointer}
+  .st{font-size:11px;color:var(--mut)} .st.err{color:#ff8a7a} .st.ok{color:#7be0a0}
+  input[type=range]{width:100%;accent-color:var(--acc)}
+  button{background:#22303f;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12px;cursor:pointer}
+  button:hover{border-color:var(--acc)}
+  .btns{display:flex;flex-wrap:wrap;gap:6px}
+  input[type=text]{width:100%;box-sizing:border-box;background:#0d1218;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px;font-size:12px}
+  #toggle{position:absolute;top:12px;left:12px;z-index:6;display:none}
+  .panel.hidden ~ #toggle{display:block}
+  .close{float:right;background:none;border:none;font-size:18px;padding:0 4px;color:var(--mut)}
+  @media (max-width:600px){ .panel{width:calc(100% - 24px);max-height:55%} }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel" id="panel">
+  <button class="close" onclick="togglePanel()" title="Ocultar">×</button>
+  <h1>Renovación Av. Central</h1>
+  <div class="sub">Santiago de Veraguas</div>
+
+  <h2>Capas</h2>
+  <div id="layers"></div>
+  <div class="btns" style="margin-top:8px">
+    <button onclick="document.getElementById('fileIn').click()">+ Cargar GLB del equipo</button>
+    <input type="file" id="fileIn" accept=".glb,.gltf" multiple hidden>
+  </div>
+
+  <h2>Vista</h2>
+  <div class="btns">
+    <button onclick="flyHome(false)">Perspectiva</button>
+    <button onclick="flyHome(true)">Planta</button>
+  </div>
+
+  <h2>Terreno de Cesium</h2>
+  <div class="row"><input type="checkbox" id="globeOn" checked><label for="globeOn">Mostrar terreno e imagen</label></div>
+  <div class="row"><input type="checkbox" id="clipOn" checked><label for="clipOn">Recortar bajo el modelo</label></div>
+  <div class="st">Transparencia</div>
+  <input type="range" id="globeAlpha" min="0" max="1" step="0.05" value="1">
+
+  <h2>Ajuste de posición</h2>
+  <div class="st">Este / Oeste (m)</div>
+  <div class="row"><input type="range" id="eOff" min="-100" max="100" step="0.5" value="0"><span id="eVal" style="width:44px;text-align:right">0.0</span></div>
+  <div class="st">Norte / Sur (m)</div>
+  <div class="row"><input type="range" id="nOff" min="-100" max="100" step="0.5" value="0"><span id="nVal" style="width:44px;text-align:right">0.0</span></div>
+  <div class="st">Giro (°)</div>
+  <div class="row"><input type="range" id="rOff" min="-180" max="180" step="0.5" value="0"><span id="rVal" style="width:44px;text-align:right">0.0</span></div>
+  <div class="btns" style="margin-top:6px"><button onclick="resetPos()">Restablecer</button></div>
+
+  <h2>Ajuste de altura (m)</h2>
+  <div class="row"><input type="range" id="hOff" min="-60" max="60" step="0.5" value="0"><span id="hVal" style="width:44px;text-align:right">0.0</span></div>
+  <div class="st">Compensa la diferencia geoide/elipsoide. Ajústalo hasta que el modelo asiente sobre el terreno.</div>
+
+  <h2>Cesium ion</h2>
+  <input type="text" id="token" placeholder="Pega aquí tu token (opcional)">
+  <div class="btns" style="margin-top:6px"><button onclick="saveToken()">Guardar y recargar</button></div>
+  <div class="st" id="tokSt"></div>
+</div>
+<button id="toggle" onclick="togglePanel()">☰ Capas</button>
+
+<script>
+// ===== Configuración del proyecto =====
+// Origen del modelo (UTM84-17N): E 501772.63, N 894950.36
+const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
+// Archivos GLB en la misma carpeta que este index.html
+const MODELS = [
+  { id: 'terreno', name: 'Terreno', url: 'terreno.glb' },
+  { id: 'pdi',     name: 'Puntos de interés',  url: 'puntos_de_interes.glb' },
+  // Exportada con otro origen (E 501773.56, N 894913.29): desfase respecto al origen base
+  { id: 'constr',  name: 'Construcciones',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
+];
+// Contorno del terreno del modelo (m locales: Este, Norte desde el origen)
+const FOOTPRINT = [[0.0, 53.74], [0.62, 193.45], [105.04, 194.69], [111.41, 145.85], [170.78, 149.52], [176.75, 179.01], [253.67, 186.6], [253.69, 151.51], [257.86, 97.0], [259.43, 96.78], [257.89, 96.6], [263.73, 20.23], [240.22, 0.0], [123.51, 22.2], [129.35, 41.14], [15.19, 46.4], [0.0, 53.74]];
+// Puntos del borde del modelo con su cota (E, N, cota) para igualar alturas con el relieve de Cesium
+const EDGE_PTS = [[2.0, 55.0, 116.4], [2.2, 92.9, 116.4], [2.3, 130.9, 116.4], [2.5, 168.8, 116.4], [17.9, 191.7, 116.4], [55.8, 192.1, 116.4], [93.8, 192.6, 116.04], [107.0, 164.5, 115.66], [127.4, 144.8, 115.2], [165.3, 147.2, 114.43], [179.5, 177.3, 113.55], [217.2, 181.0, 113.1], [251.7, 181.1, 112.7], [252.3, 143.1, 113.34], [255.2, 105.3, 113.86], [258.1, 67.5, 113.96], [261.0, 29.7, 113.91], [239.3, 2.2, 114.64], [202.1, 9.3, 115.27], [164.8, 16.4, 115.02], [127.5, 23.5, 115.34], [114.2, 43.8, 115.59], [76.3, 45.6, 115.86], [38.4, 47.3, 116.29]];
+const CENTER = { lon: -80.98271358, lat: 8.09723779 }; // centro del área exportada
+
+// ===== Token =====
+let token = '';
+try { token = localStorage.getItem('cesiumToken') || ''; } catch(e) {}
+document.getElementById('token').value = token;
+function saveToken(){
+  try { localStorage.setItem('cesiumToken', document.getElementById('token').value.trim()); } catch(e) {}
+  location.reload();
+}
+
+// ===== Visor =====
+let viewer;
+async function init(){
+  const opts = {
+    animation:false, timeline:false, baseLayerPicker:false, geocoder:false,
+    homeButton:false, sceneModePicker:false, navigationHelpButton:false,
+    fullscreenButton:true, infoBox:false, selectionIndicator:false,
+  };
+  const tokSt = document.getElementById('tokSt');
+  // Imagen satelital de Esri: no requiere clave y funciona también al abrir el archivo desde el disco
+  opts.baseLayer = Cesium.ImageryLayer.fromProviderAsync(
+    Cesium.ArcGisMapServerImageryProvider.fromUrl(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'));
+
+  // Un token real de Cesium ion es un texto largo que empieza con "eyJ"
+  const tokenValido = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(token);
+  // Las cotas del modelo son reales (112.6–121.3 m). Sin relieve, el suelo del mapa está en 0,
+  // así que se baja el modelo para que asiente sobre el mapa.
+  ORIGIN.h = -112.3; // el punto más bajo del terreno queda 0.3 m sobre el mapa
+  if (tokenValido) {
+    Cesium.Ion.defaultAccessToken = token;
+    const terrain = Cesium.Terrain.fromWorldTerrain();
+    opts.terrain = terrain;
+    terrain.readyEvent.addEventListener(() => {
+      viewer.scene.globe.depthTestAgainstTerrain = true;
+      fitHeight(terrain.provider);
+    });
+    terrain.errorEvent.addEventListener(() => {
+      tokSt.textContent = 'El token no funcionó. Se muestra el mapa sin relieve.'; tokSt.className = 'st err';
+    });
+    tokSt.textContent = 'Cargando relieve…';
+  } else if (token) {
+    tokSt.textContent = 'Ese no es el token: debe ser un texto largo que empieza con "eyJ". Se muestra el mapa sin relieve.';
+    tokSt.className = 'st err';
+  } else {
+    tokSt.textContent = 'Sin token: imagen satelital, sin relieve.';
+  }
+  viewer = new Cesium.Viewer('map', opts);
+  // Sin relieve real, el globo no debe tapar partes del modelo
+  viewer.scene.globe.depthTestAgainstTerrain = false;
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = false; // permite ver bajo el terreno
+  viewer.scene.globe.translucency.frontFaceAlphaByDistance = new Cesium.NearFarScalar(1, 1, 1, 1);
+
+  applyClip();
+  document.getElementById('clipOn').onchange = applyClip;
+  flyHome(false, 0);
+  if (location.protocol === 'file:') {
+    // Abierto desde el disco: el navegador no deja leer los GLB por su cuenta
+    document.getElementById('layers').innerHTML =
+      '<div class="st">Pulsa <b>+ Cargar GLB del equipo</b> y selecciona los archivos .glb de esta carpeta.</div>';
+  } else {
+    for (const m of MODELS) addLayer(m);
+  }
+}
+// Pasa un punto local (E, N) a longitud/latitud usando el marco del origen
+function localToCarto(e, n){
+  const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(ORIGIN.lon, ORIGIN.lat, 0));
+  const c = Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(e, n, 0), new Cesium.Cartesian3());
+  return Cesium.Cartographic.fromCartesian(c);
+}
+// Compara la cota del borde del modelo con el relieve de Cesium y ajusta la altura (mediana)
+async function fitHeight(provider){
+  const tokSt = document.getElementById('tokSt');
+  try {
+    const cartos = EDGE_PTS.map(p => localToCarto(p[0], p[1]));
+    const res = await Cesium.sampleTerrainMostDetailed(provider, cartos);
+    const diffs = res.map((c, i) => c.height - EDGE_PTS[i][2]).filter(Number.isFinite).sort((a,b)=>a-b);
+    const med = diffs[Math.floor(diffs.length/2)];
+    ORIGIN.h = med; updateModels();
+    tokSt.textContent = `Relieve activo. Altura igualada automáticamente: ${med >= 0 ? '+' : ''}${med.toFixed(1)} m.`;
+    tokSt.className = 'st ok';
+  } catch(e) {
+    ORIGIN.h = 0; updateModels();
+    tokSt.textContent = 'Relieve activo (no se pudo igualar la altura automáticamente).';
+  }
+}
+// Recorta el terreno de Cesium dentro del contorno del modelo para que no lo atraviese
+function applyClip(){
+  const g = viewer.scene.globe;
+  if (!Cesium.ClippingPolygonCollection) return;
+  if (!document.getElementById('clipOn').checked) { g.clippingPolygons = undefined; return; }
+  const positions = FOOTPRINT.map(p => Cesium.Cartographic.toCartesian(localToCarto(p[0] + val('eOff'), p[1] + val('nOff'))));
+  g.clippingPolygons = new Cesium.ClippingPolygonCollection({ polygons: [ new Cesium.ClippingPolygon({ positions }) ] });
+}
+function updateModels(){
+  const mm = modelMatrix();
+  for (const k in layers) layers[k].modelMatrix = modelMatrix(layerOff[k]);
+}
+let clipTimer;
+function updateClip(){ clearTimeout(clipTimer); clipTimer = setTimeout(applyClip, 150); }
+
+// ===== Capas =====
+const layers = {}, layerOff = {};
+const val = id => parseFloat(document.getElementById(id).value);
+function modelMatrix(off){
+  off = off || { e: 0, n: 0 };
+  const h = ORIGIN.h + val('hOff');
+  const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(ORIGIN.lon, ORIGIN.lat, h));
+  // Desplazamiento E/N y giro alrededor del origen del modelo (ajuste fino)
+  const shift = Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(val('eOff') + off.e, val('nOff') + off.n, 0));
+  const rot = Cesium.Matrix4.fromRotation(Cesium.Matrix3.fromRotationZ(Cesium.Math.toRadians(-val('rOff'))));
+  return Cesium.Matrix4.multiply(Cesium.Matrix4.multiply(enu, shift, new Cesium.Matrix4()), rot, new Cesium.Matrix4());
+}
+
+function layerUI(m){
+  const d = document.createElement('div'); d.className='layer';
+  d.innerHTML = `
+    <div class="row">
+      <input type="checkbox" id="chk-${m.id}" checked>
+      <label for="chk-${m.id}">${m.name}</label>
+      <button id="fly-${m.id}" title="Ir a la capa">⌖</button>
+    </div>
+    <div class="st" id="st-${m.id}">Cargando…</div>
+    <input type="range" id="op-${m.id}" min="0.1" max="1" step="0.05" value="1" title="Opacidad">`;
+  document.getElementById('layers').appendChild(d);
+  document.getElementById(`chk-${m.id}`).onchange = e => { if (layers[m.id]) layers[m.id].show = e.target.checked; };
+  document.getElementById(`op-${m.id}`).oninput = e => {
+    const mod = layers[m.id]; if (!mod) return;
+    mod.color = Cesium.Color.WHITE.withAlpha(parseFloat(e.target.value));
+  };
+  document.getElementById(`fly-${m.id}`).onclick = () => {
+    const mod = layers[m.id]; if (mod && mod.ready !== false) viewer.camera.flyToBoundingSphere(mod.boundingSphere, { duration:1.2 });
+  };
+}
+
+async function addLayer(m){
+  layerUI(m);
+  const st = document.getElementById(`st-${m.id}`);
+  try {
+    const model = await Cesium.Model.fromGltfAsync({ url: m.url, modelMatrix: modelMatrix(m.off), backFaceCulling:false,
+      upAxis: Cesium.Axis.Y, forwardAxis: Cesium.Axis.X }); // sin giro extra: X=Este, -Z=Norte
+    viewer.scene.primitives.add(model);
+    layers[m.id] = model; layerOff[m.id] = m.off;
+    model.readyEvent.addEventListener(() => { st.textContent = 'Cargado'; st.className='st ok'; });
+    model.errorEvent && model.errorEvent.addEventListener(err => { st.textContent = 'Error: '+err; st.className='st err'; });
+  } catch(e) {
+    st.textContent = location.protocol === 'file:'
+      ? 'No se puede leer desde el disco: usa "+ Cargar GLB" o publícalo en un servidor.'
+      : `No encontrado (${m.url})`;
+    st.className = 'st err';
+  }
+}
+
+document.getElementById('fileIn').onchange = e => {
+  const hint = document.querySelector('#layers > .st'); if (hint) hint.remove();
+  for (const f of e.target.files) {
+    const id = 'f' + Math.random().toString(36).slice(2,7);
+    const known = MODELS.find(m => m.url.toLowerCase() === f.name.toLowerCase());
+    addLayer({ id, name: known ? known.name : f.name.replace(/\.(glb|gltf)$/i, ''), url: URL.createObjectURL(f), off: known && known.off });
+  }
+  e.target.value = '';
+};
+
+// ===== Controles =====
+for (const k of ['h','e','n','r']) {
+  document.getElementById(k+'Off').oninput = e => {
+    document.getElementById(k+'Val').textContent = parseFloat(e.target.value).toFixed(1);
+    updateModels(); if (k === 'e' || k === 'n') updateClip();
+  };
+}
+function resetPos(){
+  for (const k of ['h','e','n','r']) { document.getElementById(k+'Off').value = 0; document.getElementById(k+'Val').textContent = '0.0'; }
+  updateModels();
+}
+document.getElementById('globeOn').onchange = e => { viewer.scene.globe.show = e.target.checked; };
+document.getElementById('globeAlpha').oninput = e => {
+  const a = parseFloat(e.target.value), g = viewer.scene.globe;
+  g.translucency.enabled = a < 1;
+  g.translucency.frontFaceAlpha = a;
+  g.translucency.backFaceAlpha = a;
+};
+
+function flyHome(top, duration=1.5){
+  if (top) {
+    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(CENTER.lon, CENTER.lat, 450),
+      orientation:{ heading:0, pitch:Cesium.Math.toRadians(-90), roll:0 }, duration });
+  } else {
+    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(CENTER.lon - 0.0006, CENTER.lat - 0.0032, 260),
+      orientation:{ heading:Cesium.Math.toRadians(10), pitch:Cesium.Math.toRadians(-32), roll:0 }, duration });
+  }
+}
+function togglePanel(){ document.getElementById('panel').classList.toggle('hidden'); }
+
+init();
+</script>
+</body>
+</html>
