@@ -87,6 +87,8 @@ const MODELS = [
   { id: 'pdi',     name: 'Puntos de interés',  url: 'puntos_de_interes.glb' },
   // Exportada con otro origen (E 501773.56, N 894913.29): desfase respecto al origen base
   { id: 'constr',  name: 'Construcciones',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
+  // Exportado con origen E 502162.99, N 894879.26 (incluye su terreno, árboles y vegetación)
+  { id: 'cc',      name: 'Centro Cultural',    url: 'centro_cultural.glb', off: { e: 390.36, n: -71.10 } },
 ];
 // Contorno del terreno del modelo (m locales: Este, Norte desde el origen)
 const FOOTPRINT = [[0.0, 53.74], [0.62, 193.45], [105.04, 194.69], [111.41, 145.85], [170.78, 149.52], [176.75, 179.01], [253.67, 186.6], [253.69, 151.51], [257.86, 97.0], [259.43, 96.78], [257.89, 96.6], [263.73, 20.23], [240.22, 0.0], [123.51, 22.2], [129.35, 41.14], [15.19, 46.4], [0.0, 53.74]];
@@ -113,9 +115,12 @@ async function init(){
   };
   const tokSt = document.getElementById('tokSt');
   // Imagen satelital de Esri: no requiere clave y funciona también al abrir el archivo desde el disco
-  opts.baseLayer = Cesium.ImageryLayer.fromProviderAsync(
-    Cesium.ArcGisMapServerImageryProvider.fromUrl(
-      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'));
+  // Se piden las teselas directamente (sin consultar los metadatos del servicio, que bloquean por CORS)
+  opts.baseLayer = new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maximumLevel: 19,
+    credit: 'Imagen: Esri, Maxar, Earthstar Geographics',
+  }));
 
   // Un token real de Cesium ion es un texto largo que empieza con "eyJ"
   const tokenValido = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(token);
