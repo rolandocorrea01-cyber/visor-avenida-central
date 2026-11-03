@@ -85,10 +85,11 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03e';
+const VERSION = '2026-11-03f';
 const MODELS = [
-  { id: 'terreno', name: 'Terreno', url: 'terreno.glb' },
-  { id: 'pdi',     name: 'Puntos de interés',  url: 'puntos_de_interes.glb' },
+  // Terreno a nivel de suelo derivado del DEM del dron, con la ortofoto como textura
+  { id: 'dem',     name: 'Terreno (DEM + ortofoto)', url: 'terreno_dem.glb' },
+  { id: 'pdi',     name: 'Parque JDA',  url: 'puntos_de_interes.glb' },
   // Exportada con otro origen (E 501773.56, N 894913.29): desfase respecto al origen base
   { id: 'constr',  name: 'Construcciones',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
   // Exportado con origen E 502167.99, N 894877.00 (incluye su terreno, árboles y vegetación)
@@ -132,7 +133,7 @@ async function init(){
   const tokenValido = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(token);
   // Las cotas del modelo son reales (112.6–121.3 m). Sin relieve, el suelo del mapa está en 0,
   // así que se baja el modelo para que asiente sobre el mapa.
-  ORIGIN.h = -112.3; // el punto más bajo del terreno queda 0.3 m sobre el mapa
+  ORIGIN.h = -106.3; // el punto más bajo del terreno (DEM) queda 0.3 m sobre el mapa
   if (tokenValido) {
     Cesium.Ion.defaultAccessToken = token;
     const terrain = Cesium.Terrain.fromWorldTerrain();
