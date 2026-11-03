@@ -56,7 +56,6 @@
 
   <h2>Terreno de Cesium</h2>
   <div class="row"><input type="checkbox" id="globeOn" checked><label for="globeOn">Mostrar terreno e imagen</label></div>
-  <div class="row"><input type="checkbox" id="clipOn" checked><label for="clipOn">Recortar bajo el modelo</label></div>
   <div class="st">Transparencia</div>
   <input type="range" id="globeAlpha" min="0" max="1" step="0.05" value="1">
 
@@ -86,7 +85,7 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03d';
+const VERSION = '2026-11-03e';
 const MODELS = [
   { id: 'terreno', name: 'Terreno', url: 'terreno.glb' },
   { id: 'pdi',     name: 'Puntos de interés',  url: 'puntos_de_interes.glb' },
@@ -166,8 +165,6 @@ async function init(){
   viewer.scene.screenSpaceCameraController.enableCollisionDetection = false; // permite ver bajo el terreno
   viewer.scene.globe.translucency.frontFaceAlphaByDistance = new Cesium.NearFarScalar(1, 1, 1, 1);
 
-  applyClip();
-  document.getElementById('clipOn').onchange = applyClip;
   flyHome(false, 0);
   if (location.protocol === 'file:') {
     // Abierto desde el disco: el navegador no deja leer los GLB por su cuenta
@@ -199,20 +196,11 @@ async function fitHeight(provider){
     tokSt.textContent = 'Relieve activo (no se pudo igualar la altura automáticamente).';
   }
 }
-// Recorta el terreno de Cesium dentro del contorno del modelo para que no lo atraviese
-function applyClip(){
-  const g = viewer.scene.globe;
-  if (!Cesium.ClippingPolygonCollection) return;
-  if (!document.getElementById('clipOn').checked) { g.clippingPolygons = undefined; return; }
-  const positions = FOOTPRINT.map(p => Cesium.Cartographic.toCartesian(localToCarto(p[0] + val('eOff'), p[1] + val('nOff'))));
-  g.clippingPolygons = new Cesium.ClippingPolygonCollection({ polygons: [ new Cesium.ClippingPolygon({ positions }) ] });
-}
 function updateModels(){
   const mm = modelMatrix();
   for (const k in layers) layers[k].modelMatrix = modelMatrix(layerOff[k]);
 }
-let clipTimer;
-function updateClip(){ clearTimeout(clipTimer); clipTimer = setTimeout(applyClip, 150); }
+
 
 // ===== Capas =====
 const layers = {}, layerOff = {};
@@ -280,7 +268,7 @@ document.getElementById('fileIn').onchange = e => {
 for (const k of ['h','e','n','r']) {
   document.getElementById(k+'Off').oninput = e => {
     document.getElementById(k+'Val').textContent = parseFloat(e.target.value).toFixed(1);
-    updateModels(); if (k === 'e' || k === 'n') updateClip();
+    updateModels();
   };
 }
 function resetPos(){
