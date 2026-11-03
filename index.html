@@ -51,6 +51,9 @@
     <button onclick="flyHome(true)">Planta</button>
   </div>
 
+  <h2>Imagen base</h2>
+  <div class="row"><input type="checkbox" id="ortoOn" checked><label for="ortoOn">Ortofoto de dron (Av. Central)</label></div>
+
   <h2>Terreno de Cesium</h2>
   <div class="row"><input type="checkbox" id="globeOn" checked><label for="globeOn">Mostrar terreno e imagen</label></div>
   <div class="row"><input type="checkbox" id="clipOn" checked><label for="clipOn">Recortar bajo el modelo</label></div>
@@ -83,7 +86,7 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03c';
+const VERSION = '2026-11-03d';
 const MODELS = [
   { id: 'terreno', name: 'Terreno', url: 'terreno.glb' },
   { id: 'pdi',     name: 'Puntos de interés',  url: 'puntos_de_interes.glb' },
@@ -110,7 +113,7 @@ function saveToken(){
 }
 
 // ===== Visor =====
-let viewer;
+let viewer, ortoLayer;
 async function init(){
   const opts = {
     animation:false, timeline:false, baseLayerPicker:false, geocoder:false,
@@ -150,6 +153,14 @@ async function init(){
     tokSt.textContent = 'Sin token: imagen satelital, sin relieve.';
   }
   viewer = new Cesium.Viewer('map', opts);
+  // Ortofoto de dron (teselas XYZ generadas con gdal2tiles desde TIF AVE CENTRAL.tif)
+  ortoLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    url: 'orto/{z}/{x}/{y}.webp?v=' + VERSION,
+    rectangle: Cesium.Rectangle.fromDegrees(-80.98451614, 8.09628051, -80.97541809, 8.09882976),
+    minimumLevel: 15, maximumLevel: 21,
+    credit: 'Ortofoto: Alcaldía de Santiago',
+  }));
+  ortoLayer.errorEvent && ortoLayer.errorEvent.addEventListener(() => {});
   // Sin relieve real, el globo no debe tapar partes del modelo
   viewer.scene.globe.depthTestAgainstTerrain = false;
   viewer.scene.screenSpaceCameraController.enableCollisionDetection = false; // permite ver bajo el terreno
@@ -276,6 +287,7 @@ function resetPos(){
   for (const k of ['h','e','n','r']) { document.getElementById(k+'Off').value = 0; document.getElementById(k+'Val').textContent = '0.0'; }
   updateModels();
 }
+document.getElementById('ortoOn').onchange = e => { if (ortoLayer) ortoLayer.show = e.target.checked; };
 document.getElementById('globeOn').onchange = e => { viewer.scene.globe.show = e.target.checked; };
 document.getElementById('globeAlpha').oninput = e => {
   const a = parseFloat(e.target.value), g = viewer.scene.globe;
