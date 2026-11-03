@@ -85,7 +85,7 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03g';
+const VERSION = '2026-11-03h';
 const MODELS = [
   // Terreno a nivel de suelo derivado del DEM del dron, con la ortofoto como textura
   { id: 'dem',     name: 'Terreno (DEM + ortofoto)', url: 'terreno_dem.glb' },
@@ -93,7 +93,7 @@ const MODELS = [
   // Exportada con otro origen (E 501773.56, N 894913.29): desfase respecto al origen base
   { id: 'constr',  name: 'Construcciones',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
   // Exportado con origen E 502167.99, N 894877.00 (incluye su terreno, árboles y vegetación)
-  { id: 'cc',      name: 'Centro Cultural',    url: 'centro_cultural.glb', off: { e: 395.36, n: -73.36 } },
+  { id: 'cc',      name: 'Centro Cultural',    url: 'centro_cultural.glb', off: { e: 395.36, n: -73.36, h: -1.25 } },
   // Árboles de ARBOLES.skp (coordenadas UTM): cada árbol es un "impostor" liviano (imágenes cruzadas)
   { id: 'arb',     name: 'Árboles',            url: 'arboles.glb' },
 ];
@@ -215,7 +215,7 @@ const layers = {}, layerOff = {};
 const val = id => parseFloat(document.getElementById(id).value);
 function modelMatrix(off){
   off = off || { e: 0, n: 0 };
-  const h = ORIGIN.h + val('hOff');
+  const h = ORIGIN.h + val('hOff') + (off.h || 0);
   const enu = Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(ORIGIN.lon, ORIGIN.lat, h));
   // Desplazamiento E/N y giro alrededor del origen del modelo (ajuste fino)
   const shift = Cesium.Matrix4.fromTranslation(new Cesium.Cartesian3(val('eOff') + off.e, val('nOff') + off.n, 0));
