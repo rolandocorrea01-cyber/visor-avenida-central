@@ -52,7 +52,7 @@
   </div>
 
   <h2>Imagen base</h2>
-  <div class="row"><input type="checkbox" id="ortoOn" checked><label for="ortoOn">Ortofoto de dron (Av. Central)</label></div>
+  <div class="row"><input type="checkbox" id="ortoOn" checked><label for="ortoOn">Ortofoto de dron</label></div>
 
   <h2>Terreno de Cesium</h2>
   <div class="row"><input type="checkbox" id="globeOn" checked><label for="globeOn">Mostrar terreno e imagen</label></div>
@@ -85,7 +85,7 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03f';
+const VERSION = '2026-11-03g';
 const MODELS = [
   // Terreno a nivel de suelo derivado del DEM del dron, con la ortofoto como textura
   { id: 'dem',     name: 'Terreno (DEM + ortofoto)', url: 'terreno_dem.glb' },
@@ -113,7 +113,7 @@ function saveToken(){
 }
 
 // ===== Visor =====
-let viewer, ortoLayer;
+let viewer, ortoLayer, ortoLayer2;
 async function init(){
   const opts = {
     animation:false, timeline:false, baseLayerPicker:false, geocoder:false,
@@ -161,6 +161,13 @@ async function init(){
     credit: 'Ortofoto: Alcaldía de Santiago',
   }));
   ortoLayer.errorEvent && ortoLayer.errorEvent.addEventListener(() => {});
+  // Ortofoto del Centro Cultural (ATG GYM.tif)
+  ortoLayer2 = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+    url: 'orto_cc/{z}/{x}/{y}.webp?v=' + VERSION,
+    rectangle: Cesium.Rectangle.fromDegrees(-80.98108292, 8.09458101, -80.97850800, 8.09747017),
+    minimumLevel: 15, maximumLevel: 21,
+    credit: 'Ortofoto: Alcaldía de Santiago',
+  }));
   // Sin relieve real, el globo no debe tapar partes del modelo
   viewer.scene.globe.depthTestAgainstTerrain = false;
   viewer.scene.screenSpaceCameraController.enableCollisionDetection = false; // permite ver bajo el terreno
@@ -276,7 +283,7 @@ function resetPos(){
   for (const k of ['h','e','n','r']) { document.getElementById(k+'Off').value = 0; document.getElementById(k+'Val').textContent = '0.0'; }
   updateModels();
 }
-document.getElementById('ortoOn').onchange = e => { if (ortoLayer) ortoLayer.show = e.target.checked; };
+document.getElementById('ortoOn').onchange = e => { if (ortoLayer) ortoLayer.show = e.target.checked; if (ortoLayer2) ortoLayer2.show = e.target.checked; };
 document.getElementById('globeOn').onchange = e => { viewer.scene.globe.show = e.target.checked; };
 document.getElementById('globeAlpha').oninput = e => {
   const a = parseFloat(e.target.value), g = viewer.scene.globe;
