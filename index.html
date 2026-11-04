@@ -85,7 +85,7 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03j';
+const VERSION = '2026-11-03k';
 const MODELS = [
   // Terreno a nivel de suelo derivado del DEM del dron, con la ortofoto como textura
   { id: 'dem',     name: 'Terreno (DEM + ortofoto)', url: 'terreno_dem.glb' },
@@ -95,6 +95,8 @@ const MODELS = [
   // Exportado con origen E 502167.99, N 894877.00 (incluye su terreno, árboles y vegetación)
   { id: 'cc',      name: 'Centro Cultural',    url: 'centro_cultural.glb', off: { e: 395.36, n: -73.36, h: -1.309, tilt: { pe: 74.16, pn: 95.29, ae: 0.011979, an: -0.001351 } } },
   // Árboles de ARBOLES.skp (coordenadas UTM): cada árbol es un "impostor" liviano (imágenes cruzadas)
+  // MSM (exportado de InfraWorks, origen E 501713.93, N 894812.19)
+  { id: 'msm',     name: 'MSM',                url: 'msm.glb', off: { e: -58.70, n: -138.17 } },
   { id: 'arb',     name: 'Árboles',            url: 'arboles.glb' },
 ];
 // Contorno del terreno del modelo (m locales: Este, Norte desde el origen)
