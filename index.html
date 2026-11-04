@@ -55,7 +55,7 @@
   <div class="row"><input type="checkbox" id="ortoOn" checked><label for="ortoOn">Ortofoto de dron</label></div>
 
   <h2>Terreno de Cesium</h2>
-  <div class="row"><input type="checkbox" id="globeOn" checked><label for="globeOn">Mostrar terreno e imagen</label></div>
+  <div class="row"><input type="checkbox" id="globeOn"><label for="globeOn">Mostrar terreno e imagen</label></div>
   <div class="st">Transparencia</div>
   <input type="range" id="globeAlpha" min="0" max="1" step="0.05" value="1">
 
@@ -85,13 +85,13 @@
 const ORIGIN = { lon: -80.98391051, lat: 8.09635730, h: 0 };
 // Archivos GLB en la misma carpeta que este index.html
 // Cambiar este numero cada vez que se actualicen los .glb, para que el navegador no use copias viejas
-const VERSION = '2026-11-03i';
+const VERSION = '2026-11-03j';
 const MODELS = [
   // Terreno a nivel de suelo derivado del DEM del dron, con la ortofoto como textura
   { id: 'dem',     name: 'Terreno (DEM + ortofoto)', url: 'terreno_dem.glb' },
   { id: 'pdi',     name: 'Parque JDA',  url: 'puntos_de_interes.glb' },
   // Exportada con otro origen (E 501773.56, N 894913.29): desfase respecto al origen base
-  { id: 'constr',  name: 'Construcciones',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
+  { id: 'constr',  name: 'Avenida Central',     url: 'construcciones.glb', off: { e: 0.93, n: -37.07 } },
   // Exportado con origen E 502167.99, N 894877.00 (incluye su terreno, árboles y vegetación)
   { id: 'cc',      name: 'Centro Cultural',    url: 'centro_cultural.glb', off: { e: 395.36, n: -73.36, h: -1.309, tilt: { pe: 74.16, pn: 95.29, ae: 0.011979, an: -0.001351 } } },
   // Árboles de ARBOLES.skp (coordenadas UTM): cada árbol es un "impostor" liviano (imágenes cruzadas)
@@ -153,6 +153,7 @@ async function init(){
     tokSt.textContent = 'Sin token: imagen satelital, sin relieve.';
   }
   viewer = new Cesium.Viewer('map', opts);
+  viewer.scene.globe.show = false;   // terreno e imagen de Cesium apagados al inicio
   // Ortofoto de dron (teselas XYZ generadas con gdal2tiles desde TIF AVE CENTRAL.tif)
   ortoLayer = viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
     url: 'orto/{z}/{x}/{y}.webp?v=' + VERSION,
